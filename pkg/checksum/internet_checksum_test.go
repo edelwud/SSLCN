@@ -1,7 +1,6 @@
 package checksum
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 )
@@ -9,5 +8,7 @@ import (
 func TestCalculateInternetChecksum(t *testing.T) {
 	payload := []byte("Test payload\n")
 	checksum := CalculateInternetChecksum(payload)
-	fmt.Println(strconv.FormatInt(int64(checksum), 16))
+	if strconv.FormatInt(int64(checksum), 16) != "de68" {
+		t.Fatal("incorrect internet checksum result")
+	}
 }
