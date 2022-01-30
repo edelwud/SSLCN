@@ -4,8 +4,8 @@ import (
 	"SSLCN/internal/raw"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
+	"sync"
 	"testing"
-	"time"
 )
 
 func TestNew(t *testing.T) {
@@ -13,12 +13,12 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	defer r.Close()
 
-	p, err := New(r, "google.com")
+	_, err = New(r, "google.com")
 	if err != nil {
 		panic(err)
 	}
-	defer p.Close()
 }
 
 func TestPing_Send(t *testing.T) {
@@ -26,12 +26,12 @@ func TestPing_Send(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	defer r.Close()
 
 	p, err := New(r, "1.1.1.1")
 	if err != nil {
 		panic(err)
 	}
-	defer p.Close()
 
 	err = p.Send(1)
 	if err != nil {
@@ -51,12 +51,12 @@ func TestPing_Run(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	defer r.Close()
 
 	p, err := New(r, "1.1.1.1")
 	if err != nil {
 		panic(err)
 	}
-	defer p.Close()
 
 	run, err := p.Run(1)
 	if err != nil {
@@ -71,28 +71,26 @@ func TestPing_Receive(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	defer r.Close()
 
 	p, err := New(r, "google.com")
 	if err != nil {
 		panic(err)
 	}
-	defer p.Close()
+
+	var wg sync.WaitGroup
 
 	for i := 0; i < 100; i++ {
-		go func() {
-			err := p.Send(1)
+		go func(i int) {
+			dur, err := p.Run(uint16(i))
 			if err != nil {
-				panic(err)
+				return
 			}
-
-			_, value, err := p.Receive()
-			if err != nil {
-				panic(err)
-			}
-
-			spew.Dump(value.Bytes())
-		}()
+			spew.Dump(dur)
+			wg.Done()
+		}(i)
+		wg.Add(1)
 	}
 
-	time.Sleep(time.Second * 10)
+	wg.Wait()
 }
