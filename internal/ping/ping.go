@@ -6,7 +6,9 @@ import (
 	"golang.org/x/net/ipv4"
 	"io"
 	"log"
+	"math/rand"
 	"net"
+	"syscall"
 	"time"
 )
 
@@ -14,10 +16,11 @@ type Ping struct {
 	address      *net.IPAddr
 	socket       *ipv4.PacketConn
 	writtenBytes int
+	identifier   uint16
 }
 
 func (p *Ping) Write(buf []byte) (n int, err error) {
-	n, err = p.socket.WriteTo(buf, nil, p.address)
+	n, err = p.socket.PacketConn.WriteTo(buf, p.address)
 	if err != nil {
 		return 0, err
 	}
@@ -28,18 +31,41 @@ func (p *Ping) Write(buf []byte) (n int, err error) {
 }
 
 func (p *Ping) Read(buf []byte) (n int, err error) {
-	n, _, _, err = p.socket.ReadFrom(buf)
+	oob := make([]byte, 2048)
+	b := make([]byte, 2048)
+	messages := make([]ipv4.Message, 0)
+	messages = append(messages, ipv4.Message{
+		Buffers: append(make([][]byte, 0), b),
+		OOB:     oob,
+		Addr:    p.address,
+		N:       len(b),
+		NN:      len(oob),
+		Flags:   syscall.MSG_PEEK,
+	})
+
+	n, err = p.socket.ReadBatch(messages, syscall.MSG_PEEK)
 	if err != nil {
 		return 0, err
 	}
 
-	p.writtenBytes -= n
-
-	if p.writtenBytes == 0 {
-		return n, io.EOF
+	header, _, err := icmp.Unpack(bytes.NewBuffer(messages[0].Buffers[0][20:]))
+	if err != nil {
+		return 0, err
 	}
 
-	return n, nil
+	if header.PacketID == p.identifier {
+		n, _, _, err = p.socket.ReadFrom(buf)
+		if err != nil {
+			return 0, err
+		}
+
+		p.writtenBytes -= n
+		if p.writtenBytes == 0 {
+			return n, io.EOF
+		}
+	}
+
+	return n, io.EOF
 }
 
 func (p *Ping) Send() error {
@@ -48,7 +74,7 @@ func (p *Ping) Send() error {
 	payload := new(bytes.Buffer)
 	payload.Write([]byte(now))
 
-	packed, err := icmp.Pack(icmp.EchoReply, payload)
+	packed, err := icmp.Pack(icmp.NewEchoReply(p.identifier, 1), payload)
 	if err != nil {
 		return err
 	}
@@ -99,5 +125,5 @@ func New(destination string) (*Ping, error) {
 		return nil, err
 	}
 
-	return &Ping{dst, p, 0}, nil
+	return &Ping{dst, p, 0, uint16(rand.Intn(65536))}, nil
 }
