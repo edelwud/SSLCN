@@ -18,10 +18,10 @@ func CalculateInternetChecksum(payload *bytes.Buffer) uint16 {
 			second = uint16(values[1])
 		}
 
-		currentWord := first<<8 | second
+		currentWord := first | second<<8
 		result := uint32(currentWord) + checksum
 		checksum = result&0xFFFF + result>>16
 	}
 
-	return uint16(^checksum) & 0xFFFF
+	return uint16(^checksum & 0xFFFF)
 }
