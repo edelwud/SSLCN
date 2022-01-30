@@ -1,13 +1,20 @@
 package ping
 
 import (
+	"SSLCN/internal/raw"
+	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"testing"
 	"time"
 )
 
 func TestNew(t *testing.T) {
-	p, err := New("google.com")
+	r, err := raw.New("0.0.0.0")
+	if err != nil {
+		panic(err)
+	}
+
+	p, err := New(r, "google.com")
 	if err != nil {
 		panic(err)
 	}
@@ -15,18 +22,23 @@ func TestNew(t *testing.T) {
 }
 
 func TestPing_Send(t *testing.T) {
-	p, err := New("1.1.1.1")
+	r, err := raw.New("0.0.0.0")
+	if err != nil {
+		panic(err)
+	}
+
+	p, err := New(r, "1.1.1.1")
 	if err != nil {
 		panic(err)
 	}
 	defer p.Close()
 
-	err = p.Send()
+	err = p.Send(1)
 	if err != nil {
 		panic(err)
 	}
 
-	buf, err := p.Receive()
+	_, buf, err := p.Receive()
 	if err != nil {
 		panic(err)
 	}
@@ -34,8 +46,33 @@ func TestPing_Send(t *testing.T) {
 	spew.Dump(buf.Bytes())
 }
 
+func TestPing_Run(t *testing.T) {
+	r, err := raw.New("0.0.0.0")
+	if err != nil {
+		panic(err)
+	}
+
+	p, err := New(r, "1.1.1.1")
+	if err != nil {
+		panic(err)
+	}
+	defer p.Close()
+
+	run, err := p.Run(1)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(run)
+}
+
 func TestPing_Receive(t *testing.T) {
-	p, err := New("google.com")
+	r, err := raw.New("0.0.0.0")
+	if err != nil {
+		panic(err)
+	}
+
+	p, err := New(r, "google.com")
 	if err != nil {
 		panic(err)
 	}
@@ -43,12 +80,12 @@ func TestPing_Receive(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		go func() {
-			err := p.Send()
+			err := p.Send(1)
 			if err != nil {
 				panic(err)
 			}
 
-			value, err := p.Receive()
+			_, value, err := p.Receive()
 			if err != nil {
 				panic(err)
 			}
