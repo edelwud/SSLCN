@@ -7,34 +7,46 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 )
 
 type Ping struct {
-	address *net.IPAddr
-	socket  *ipv4.PacketConn
+	address      *net.IPAddr
+	socket       *ipv4.PacketConn
+	writtenBytes int
 }
 
-func (p Ping) Write(buf []byte) (n int, err error) {
+func (p *Ping) Write(buf []byte) (n int, err error) {
 	n, err = p.socket.WriteTo(buf, nil, p.address)
 	if err != nil {
 		return 0, err
 	}
 
-	return len(buf), nil
+	p.writtenBytes += n
+
+	return n, nil
 }
 
-func (p Ping) Read(buf []byte) (n int, err error) {
+func (p *Ping) Read(buf []byte) (n int, err error) {
 	n, _, _, err = p.socket.ReadFrom(buf)
 	if err != nil {
 		return 0, err
 	}
 
-	return n, io.EOF
+	p.writtenBytes -= n
+
+	if p.writtenBytes == 0 {
+		return n, io.EOF
+	}
+
+	return n, nil
 }
 
-func (p Ping) Send() error {
+func (p *Ping) Send() error {
+	now := time.Now().String()
+
 	payload := new(bytes.Buffer)
-	payload.Write([]byte("HEY"))
+	payload.Write([]byte(now))
 
 	packed, err := icmp.Pack(icmp.EchoReply, payload)
 	if err != nil {
@@ -49,7 +61,7 @@ func (p Ping) Send() error {
 	return nil
 }
 
-func (p Ping) Receive() (*bytes.Buffer, error) {
+func (p *Ping) Receive() (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
 
 	_, err := io.Copy(buf, p)
@@ -87,5 +99,5 @@ func New(destination string) (*Ping, error) {
 		return nil, err
 	}
 
-	return &Ping{dst, p}, nil
+	return &Ping{dst, p, 0}, nil
 }
