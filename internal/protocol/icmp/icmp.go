@@ -16,7 +16,7 @@ type ICMP struct {
 }
 
 var (
-	EchoReply = ICMP{Type: 0, Code: 0}
+	EchoReply = ICMP{Type: 8, Code: 0, SequenceNum: 1}
 )
 
 func Pack(header ICMP, payload *bytes.Buffer) (*bytes.Buffer, error) {
@@ -24,30 +24,29 @@ func Pack(header ICMP, payload *bytes.Buffer) (*bytes.Buffer, error) {
 
 	header.PacketID = uint16(os.Getpid()) & 0xFFFF
 
-	err := binary.Write(message, binary.BigEndian, header)
+	err := binary.Write(message, binary.LittleEndian, header)
 	if err != nil {
 		return nil, err
 	}
+
+	message.Write(payload.Bytes())
 
 	header.Checksum = checksum.CalculateInternetChecksum(message)
 
 	message.Reset()
 
-	err = binary.Write(message, binary.BigEndian, header)
+	err = binary.Write(message, binary.LittleEndian, header)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = payload.WriteTo(message)
-	if err != nil {
-		return nil, err
-	}
+	message.Write(payload.Bytes())
 
 	return message, nil
 }
 
 func Unpack(message *bytes.Buffer) (header ICMP, payload *bytes.Buffer, err error) {
-	err = binary.Read(message, binary.BigEndian, &header)
+	err = binary.Read(message, binary.LittleEndian, &header)
 	if err != nil {
 		return ICMP{}, nil, err
 	}
