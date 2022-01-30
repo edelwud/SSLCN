@@ -4,7 +4,6 @@ import (
 	"SSLCN/pkg/checksum"
 	"bytes"
 	"encoding/binary"
-	"os"
 )
 
 type ICMP struct {
@@ -19,10 +18,12 @@ var (
 	EchoReply = ICMP{Type: 8, Code: 0, SequenceNum: 1}
 )
 
+func NewEchoReply(identifier, sequenceNum uint16) ICMP {
+	return ICMP{Type: 8, Code: 0, PacketID: identifier, SequenceNum: sequenceNum}
+}
+
 func Pack(header ICMP, payload *bytes.Buffer) (*bytes.Buffer, error) {
 	message := new(bytes.Buffer)
-
-	header.PacketID = uint16(os.Getpid()) & 0xFFFF
 
 	err := binary.Write(message, binary.LittleEndian, header)
 	if err != nil {
